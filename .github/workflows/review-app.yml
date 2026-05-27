@@ -1,0 +1,32 @@
+name: Review App
+on:
+  pull_request:
+    types: [labeled, synchronize, closed]
+
+jobs:
+  deploy:
+    if: >
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'review')
+    uses: dokku-review/actions/.github/workflows/deploy.yml@v1
+    with:
+      server: ${{ vars.REVIEW_SERVER }}
+      domain: ${{ vars.REVIEW_DOMAIN }}
+      app: pr-${{ github.event.pull_request.number }}
+      ref: ${{ github.event.pull_request.head.sha }}
+      env_vars: |
+        RAILS_ENV=production
+        APP_HOST=pr-${{ github.event.pull_request.number }}.${{ vars.REVIEW_DOMAIN }}
+    secrets:
+      ssh_private_key: ${{ secrets.REVIEW_SSH_PRIVATE_KEY }}
+      env_secrets: |
+        RAILS_MASTER_KEY=${{ secrets.REVIEW_RAILS_MASTER_KEY }}
+
+  teardown:
+    if: github.event.action == 'closed'
+    uses: dokku-review/actions/.github/workflows/teardown.yml@v1
+    with:
+      server: ${{ vars.REVIEW_SERVER }}
+      app: pr-${{ github.event.pull_request.number }}
+    secrets:
+      ssh_private_key: ${{ secrets.REVIEW_SSH_PRIVATE_KEY }}
